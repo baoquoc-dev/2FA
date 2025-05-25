@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+  <meta charset="UTF-8">
+  <title>GET 2FA</title>
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/jsSHA/3.2.0/sha.js"></script>
+  <style>
+    body {
+      font-family: 'Segoe UI', sans-serif;
+      background: linear-gradient(to bottom right, #e0f7fa, #ffffff);
+      min-height: 100vh;
+      display: flex;
+      flex-direction: column;
+      align-items: center;
+      justify-content: center;
+      padding: 40px;
+    }
+    h2 {
+      color: #0277bd;
+      margin-bottom: 20px;
+    }
+    .container {
+      background: #ffffffcc;
+      border: 1px solid #b3e5fc;
+      box-shadow: 0 8px 16px rgba(0,0,0,0.1);
+      border-radius: 12px;
+      padding: 30px;
+      width: 100%;
+      max-width: 400px;
+      text-align: center;
+    }
+    input {
+      width: 100%;
+      padding: 12px;
+      margin-bottom: 20px;
+      border: 1px solid #81d4fa;
+      border-radius: 8px;
+      font-size: 16px;
+      outline: none;
+    }
+    table {
+      width: 100%;
+      border-collapse: collapse;
+      margin-top: 10px;
+    }
+    td {
+      padding: 16px;
+      background: #e1f5fe;
+      border-radius: 8px;
+      font-size: 36px;
+      font-weight: bold;
+      color: #0288d1;
+      cursor: pointer;
+      user-select: none;
+      transition: transform 0.2s ease;
+    }
+    td:hover {
+      background: #b3e5fc;
+      transform: scale(1.03);
+    }
+    .copied {
+      margin-top: 12px;
+      font-size: 14px;
+      color: #00796b;
+      display: none;
+    }
+    .timer {
+      margin-top: 8px;
+      font-size: 14px;
+      color: #555;
+    }
+  </style>
+</head>
+<body>
+  <h2>GET 2FA</h2>
+  <div class="container">
+    <input type="text" id="secretInput" placeholder="Enter secret">
+    <div id="errorMsg" style="color:#d32f2f; font-size:14px; margin-bottom:8px; display:none;"></div>
+    <table>
+      <tr>
+        <td id="otpCode" title="Click to copy">------</td>
+      </tr>
+    </table>
+    <div class="copied" id="copiedMsg">✅ Copied to clipboard!</div>
+  </div>
+
+  <script>
+    function base32tohex(base32) {
+      const base32chars = "ABCDEFGHIJKLMNOPQRSTUVWXYZ234567";
+      let bits = "";
+      let hex = "";
+
+      base32 = base32.replace(/[\s=]+/g, '').toUpperCase();
+      for (let i = 0; i < base32.length; i++) {
+        const val = base32chars.indexOf(base32.charAt(i));
+        if (val === -1) return null;
+        bits += val.toString(2).padStart(5, '0');
+      }
+
+      for (let i = 0; i + 4 <= bits.length; i += 4) {
+        const chunk = bits.substr(i, 4);
+        hex += parseInt(chunk, 2).toString(16);
+      }
+
+      return hex;
+    }
+
+    function getOTP(secret) {
+      const key = base32tohex(secret);
+      if (!key) return null;
+      const epoch = Math.floor(new Date().getTime() / 1000.0);
+      const time = Math.floor(epoch / 30).toString(16).padStart(16, '0');
+
+      const shaObj = new jsSHA("SHA-1", "HEX");
+      shaObj.setHMACKey(key, "HEX");
+      shaObj.update(time);
+      const hmac = shaObj.getHMAC("HEX");
+
+      const offset = parseInt(hmac.substring(hmac.length - 1), 16);
+      const part = hmac.substr(offset * 2, 8);
+      const code = (parseInt(part, 16) & 0x7fffffff) + '';
+      return code.substr(code.length - 6);
+    }
+
+    function updateOTP(force) {
+      const secretInput = document.getElementById("secretInput");
+      const errorMsg = document.getElementById("errorMsg");
+      let secret = secretInput.value.trim().replace(/\s+/g, '').toUpperCase();
+      secretInput.value = secret;
+
+      if (!secret) {
+        document.getElementById("otpCode").innerText = "------";
+        errorMsg.style.display = "none";
+        document.getElementById("countdown").innerText = "Next in: 30s";
+        return;
+      }
+
+      if (!/^[A-Z2-7]+$/.test(secret)) {
+        document.getElementById("otpCode").innerText = "------";
+        errorMsg.innerText = "Invalid secret";
+        errorMsg.style.display = "block";
+        document.getElementById("countdown").innerText = "";
+        return;
+      }
+
+      const otp = getOTP(secret);
+      if (!otp) {
+        document.getElementById("otpCode").innerText = "------";
+        errorMsg.innerText = "Invalid secret";
+        errorMsg.style.display = "block";
+        document.getElementById("countdown").innerText = "";
+        return;
+      }
+
+      errorMsg.style.display = "none";
+      document.getElementById("otpCode").innerText = otp;
+      const now = new Date();
+      const seconds = 30 - (now.getSeconds() % 30);
+      document.getElementById("countdown").innerText = `Next in: ${seconds}s`;
+    }
+
+    function copyOTP() {
+      const otp = document.getElementById("otpCode").innerText;
+      if (!/^\d{6}$/.test(otp)) return;
+      navigator.clipboard.writeText(otp).then(() => {
+        const msg = document.getElementById("copiedMsg");
+        msg.style.display = 'block';
+        setTimeout(() => {
+          msg.style.display = 'none';
+        }, 1500);
+      });
+    }
+
+    document.getElementById("otpCode").addEventListener("click", copyOTP);
+    document.getElementById("secretInput").addEventListener("input", () => updateOTP(true));
+    setInterval(updateOTP, 1000);
+    updateOTP();
+  </script>
+</body>
+</html>
