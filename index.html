@@ -81,7 +81,8 @@
         <td id="otpCode" title="Click to copy">------</td>
       </tr>
     </table>
-    <div class="copied" id="copiedMsg">✅ Copied to clipboard!</div>
+    <div class="copied" id="copiedMsg">Copied to clipboard!</div>
+    <div class="timer" id="countdown" style="display:none;">Next in: 30s</div>
   </div>
 
   <script>
@@ -125,13 +126,15 @@
     function updateOTP(force) {
       const secretInput = document.getElementById("secretInput");
       const errorMsg = document.getElementById("errorMsg");
+      const countdown = document.getElementById("countdown");
       let secret = secretInput.value.trim().replace(/\s+/g, '').toUpperCase();
       secretInput.value = secret;
 
       if (!secret) {
         document.getElementById("otpCode").innerText = "------";
         errorMsg.style.display = "none";
-        document.getElementById("countdown").innerText = "Next in: 30s";
+        countdown.style.display = "none";
+        countdown.innerText = "Next in: 30s";
         return;
       }
 
@@ -139,7 +142,8 @@
         document.getElementById("otpCode").innerText = "------";
         errorMsg.innerText = "Invalid secret";
         errorMsg.style.display = "block";
-        document.getElementById("countdown").innerText = "";
+        countdown.style.display = "none";
+        countdown.innerText = "Next in: 30s";
         return;
       }
 
@@ -148,7 +152,8 @@
         document.getElementById("otpCode").innerText = "------";
         errorMsg.innerText = "Invalid secret";
         errorMsg.style.display = "block";
-        document.getElementById("countdown").innerText = "";
+        countdown.style.display = "none";
+        countdown.innerText = "Next in: 30s";
         return;
       }
 
@@ -156,7 +161,8 @@
       document.getElementById("otpCode").innerText = otp;
       const now = new Date();
       const seconds = 30 - (now.getSeconds() % 30);
-      document.getElementById("countdown").innerText = `Next in: ${seconds}s`;
+      countdown.innerText = `Next in: ${seconds}s`;
+      countdown.style.display = "block";
     }
 
     function copyOTP() {
